@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Guttu",
+    "icon": "./assets/logos/guttu-logo.png",
+    "slug": "my-expo-app",
+    "version": "1.0.0",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "experiments": {
+      "tsconfigPaths": true
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-secure-store"
+    ],
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "statusBarHidden": true
+    },
+    "androidStatusBar": {
+      "hidden": true
+    },
+    "android": {
+      "package": "com.mohankumarn.guttu",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logos/guttu-logo.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0c85a6e2-ff95-4c98-8b77-a9d37f333cfc"
+      }
+    }
+  }
+}
