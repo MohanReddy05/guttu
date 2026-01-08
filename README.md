@@ -59,9 +59,11 @@ Ensure you have [Node.js](https://nodejs.org/) and [Expo Go](https://expo.dev/cl
 ```Plaintext
 ├── src/
 │   ├── components/      # Reusable UI components
+|   ├── context/
+|   ├── Controllers/
 │   ├── database/        # SQLite initialization and queries
 │   ├── services/        # Encryption and SecureStore logic
-│   ├── screens/         # App screens (Home, Add Password, Settings)
+│   ├── screens/         # App screens (Home, Add Password, Group)
 │   └── utils/           # Helper functions
 ├── App.js               # Main entry point
 └── package.json         # Project dependencies
