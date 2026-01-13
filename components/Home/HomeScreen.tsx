@@ -20,7 +20,7 @@ export const HomeScreen = () => {
   }, []);
 
   return (
-    <View className="mb-1 flex-1 bg-white px-2 pt-1 pb-6">
+    <View className="mb-1 flex-1 bg-(--bg) px-2 pt-1 pb-6">
       <HeroSection key={refreshTrigger} onDataSaved={handleRefresh} />
 
       {/* FAB stays at the bottom */}

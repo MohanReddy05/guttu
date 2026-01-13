@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,12 @@ import {
   ActivityIndicator,
   TextInput,
   ScrollView,
+  BackHandler,
+  NativeEventSubscription,
 } from 'react-native';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { getSecret, updateSecret } from 'Services/SecureStorage';
-import { authenticateUser } from 'Services/AuthService'; // ✅ Added for security
+import { authenticateUser } from 'Services/AuthService';
 import * as Clipboard from 'expo-clipboard';
 import db from 'database/client';
 import { deleteAccountEntry } from 'controllers/DeleteAccount';
@@ -21,23 +23,58 @@ type Credentials = {
 };
 
 const AccountDetailScreen = ({ account, onClose, onDataSaved }) => {
+  // --- 1. STATE HOOKS ---
   const [credentials, setCredentials] = useState<Credentials | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPass, setShowPass] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(account.title);
-
   const [allGroups, setAllGroups] = useState<any[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(account.group_id);
   const [currentGroupName, setCurrentGroupName] = useState('Root');
 
+  // --- 2. THE UNIFIED CLOSE LOGIC ---
+  const handleClose = useCallback(() => {
+    if (isEditing) {
+      Alert.alert(
+        'Discard Changes?',
+        'You have unsaved changes. Are you sure you want to go back?',
+        [
+          { text: 'Keep Editing', style: 'cancel' },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => onClose(),
+          },
+        ]
+      );
+      return true; // Prevents the physical back button from closing the app
+    }
+    onClose();
+    return true;
+  }, [isEditing, onClose]);
+
+  // --- 3. EFFECT HOOKS ---
+
+  // Handle Hardware Back Button
+  useEffect(() => {
+    const subscription: NativeEventSubscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      handleClose
+    );
+    return () => subscription.remove();
+  }, [handleClose]);
+
+  // Initial Data Fetch
   useEffect(() => {
     setEditTitle(account.title);
     setSelectedGroupId(account.group_id);
     loadGroups();
     loadSecrets();
   }, [account]);
+
+  // --- 4. HELPER FUNCTIONS ---
 
   const loadGroups = () => {
     try {
@@ -71,30 +108,17 @@ const AccountDetailScreen = ({ account, onClose, onDataSaved }) => {
     await Clipboard.setStringAsync(text);
   };
 
-  // ✅ PROTECTED TOGGLE
-  const handleToggleShowPass = async () => {
-    if (!showPass) {
-      setShowPass(true);
-    } else {
-      setShowPass(false);
-    }
-  };
-
-  // ✅ PROTECTED UPDATE
   const handleUpdate = async () => {
     if (!credentials?.username || !credentials?.password) {
       Alert.alert('Error', 'Missing credentials.');
       return;
     }
-
     const isAuthed = await authenticateUser();
     if (!isAuthed) return;
 
     try {
       setSaving(true);
       await updateSecret(account.secure_key, credentials.username, credentials.password);
-
-      // ✅ Database Sync Fix: Added group_id to the update
       db.runSync('UPDATE password_metadata SET title = ?, group_id = ? WHERE id = ?', [
         editTitle,
         selectedGroupId,
@@ -111,18 +135,17 @@ const AccountDetailScreen = ({ account, onClose, onDataSaved }) => {
       setCurrentGroupName(newGroup ? newGroup.name : 'Root Directory');
       Alert.alert('Success', 'Account updated successfully.');
     } catch (error) {
-      Alert.alert('Error', 'Update failed to sync.');
+      Alert.alert('Error', 'Update failed.');
     } finally {
       setSaving(false);
     }
   };
 
-  // ✅ PROTECTED DELETE
   const handleDelete = async () => {
     const isAuthed = await authenticateUser();
     if (!isAuthed) return;
 
-    Alert.alert('Delete Account', 'This will permanently wipe these credentials.', [
+    Alert.alert('Delete Account', 'Permanently wipe these credentials?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
@@ -133,14 +156,14 @@ const AccountDetailScreen = ({ account, onClose, onDataSaved }) => {
           if (success) {
             onDataSaved({ type: 'delete', id: account.id });
             onClose();
-          } else {
-            Alert.alert('Error', 'Failed to delete.');
           }
           setSaving(false);
         },
       },
     ]);
   };
+
+  // --- 5. RENDER LOGIC ---
 
   if (loading) return <ActivityIndicator className="flex-1" size="large" color="#0f172a" />;
 
@@ -149,14 +172,18 @@ const AccountDetailScreen = ({ account, onClose, onDataSaved }) => {
       {/* HEADER */}
       <View className="flex-row items-center justify-between border-b border-slate-100 px-6 pt-14 pb-6">
         <View className="flex-1 flex-row items-center">
-          <TouchableOpacity onPress={onClose} className="mr-4 rounded-full bg-slate-100 p-2">
-            <MaterialCommunityIcons name="close" size={24} color="#0f172a" />
+          <TouchableOpacity
+            onPress={handleClose}
+            className="mr-4 rounded-full bg-slate-100 p-2 active:bg-slate-200">
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#0f172a" />
           </TouchableOpacity>
+
           {isEditing ? (
             <TextInput
               value={editTitle}
               onChangeText={setEditTitle}
               className="flex-1 border-b border-blue-400 text-xl font-bold text-slate-900"
+              autoFocus
             />
           ) : (
             <Text className="text-2xl font-bold text-slate-900">{editTitle}</Text>
@@ -187,7 +214,7 @@ const AccountDetailScreen = ({ account, onClose, onDataSaved }) => {
       </View>
 
       <ScrollView className="flex-1 space-y-4 p-6">
-        {/* USERNAME */}
+        {/* USERNAME SECTION */}
         <View className="mb-4 rounded-3xl border border-slate-100 bg-slate-50 p-5">
           <Text className="mb-2 text-[10px] font-bold tracking-widest text-slate-400 uppercase">
             Username
@@ -209,7 +236,7 @@ const AccountDetailScreen = ({ account, onClose, onDataSaved }) => {
           )}
         </View>
 
-        {/* PASSWORD */}
+        {/* PASSWORD SECTION */}
         <View className="mb-4 rounded-3xl border border-slate-100 bg-slate-50 p-5">
           <Text className="mb-2 text-[10px] font-bold tracking-widest text-slate-400 uppercase">
             Password
@@ -228,7 +255,7 @@ const AccountDetailScreen = ({ account, onClose, onDataSaved }) => {
               </Text>
             )}
             <View className="flex-row gap-4">
-              <TouchableOpacity onPress={handleToggleShowPass}>
+              <TouchableOpacity onPress={() => setShowPass(!showPass)}>
                 <MaterialCommunityIcons
                   name={showPass ? 'eye-off' : 'eye-outline'}
                   size={22}
@@ -243,7 +270,8 @@ const AccountDetailScreen = ({ account, onClose, onDataSaved }) => {
             </View>
           </View>
         </View>
-        {/* LOCATION */}
+
+        {/* GROUP SECTION */}
         <View className="mb-4 rounded-3xl border border-slate-100 bg-slate-50 p-5">
           <Text className="mb-2 text-[10px] font-bold tracking-widest text-slate-400 uppercase">
             Group
@@ -280,7 +308,6 @@ const AccountDetailScreen = ({ account, onClose, onDataSaved }) => {
           )}
         </View>
 
-        {/**Cancel Button */}
         {isEditing && (
           <TouchableOpacity onPress={() => setIsEditing(false)} className="mt-4 items-center">
             <Text className="text-slate-400">Cancel Editing</Text>
@@ -288,10 +315,10 @@ const AccountDetailScreen = ({ account, onClose, onDataSaved }) => {
         )}
       </ScrollView>
 
-      <View className="mt-8 flex-row items-center rounded-2xl bg-blue-50 p-4">
+      <View className="mx-6 mt-4 mb-16 flex-row items-center rounded-2xl bg-blue-50 p-4">
         <MaterialCommunityIcons name="information-outline" size={20} color="#3b82f6" />
         <Text className="ml-3 flex-1 text-xs text-blue-700">
-          This password is stored using AES-256 encryption within the device's secure enclave.
+          This password is stored using AES-256 encryption within the device secure enclave.
         </Text>
       </View>
     </View>

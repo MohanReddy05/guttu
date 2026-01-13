@@ -16,8 +16,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <GroupProvider>
-        <StatusBar style="auto" />
-
+        <StatusBar style="auto" backgroundColor="#61dafb" translucent={false} hidden={false} />
         <HomeScreen />
       </GroupProvider>
     </SafeAreaProvider>
